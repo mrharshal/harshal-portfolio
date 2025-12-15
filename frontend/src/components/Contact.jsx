@@ -11,32 +11,50 @@ const Contact = () => {
     message: '',
   })
   const [status, setStatus] = useState({ type: '', message: '' })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
+    setIsSubmitting(true)
+    setStatus({ type: '', message: '' })
     
-    // Create mailto link with form data
-    const { name, email, subject, message } = formData
-    const mailtoLink = `mailto:harshalshirsath2001@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`)}`
-    
-    // Open default email client
-    window.location.href = mailtoLink
-    
-    // Show success message
-    setStatus({ 
-      type: 'success', 
-      message: 'Opening your email client... Please send the message to contact me!' 
-    })
-    
-    // Reset form after a delay
-    setTimeout(() => {
-      setFormData({ name: '', email: '', subject: '', message: '' })
-      setStatus({ type: '', message: '' })
-    }, 3000)
+    try {
+      const response = await fetch('http://localhost:5000/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        setStatus({ 
+          type: 'success', 
+          message: data.message 
+        })
+        // Reset form on success
+        setFormData({ name: '', email: '', subject: '', message: '' })
+      } else {
+        setStatus({ 
+          type: 'error', 
+          message: data.message || 'Failed to send message. Please try again.' 
+        })
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      setStatus({ 
+        type: 'error', 
+        message: 'Network error. Please check your connection and try again.' 
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const contactDetails = [
@@ -155,8 +173,8 @@ const Contact = () => {
                 </div>
               )}
 
-              <button type="submit" className="form-submit">
-                Send Message
+              <button type="submit" className="form-submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Sending...' : 'Send Message'}
                 <HiPaperAirplane />
               </button>
             </form>
