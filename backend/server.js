@@ -32,6 +32,8 @@ app.use('/api/contact', limiter);
 const corsOptions = {
   origin: [
     'http://localhost:5173',
+    'https://boisterous-tanuki-010bdb.netlify.app',
+    'https://poetic-medovik-41e2d4.netlify.app',
     'https://splendorous-sherbet-26fce2.netlify.app',
     process.env.FRONTEND_URL
   ].filter(Boolean),
@@ -43,6 +45,20 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Additional CORS headers for preflight requests
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://boisterous-tanuki-010bdb.netlify.app');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 // Body parser middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -52,6 +68,16 @@ app.set('trust proxy', 1);
 
 // Routes
 app.use('/api/contact', require('./routes/contact'));
+
+// CORS test endpoint
+app.get('/api/test-cors', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CORS is working!',
+    origin: req.get('Origin'),
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
