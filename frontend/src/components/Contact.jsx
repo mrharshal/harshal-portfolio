@@ -23,7 +23,7 @@ const Contact = () => {
     setStatus({ type: '', message: '' })
     
     try {
-      const response = await fetch('https://harshal-portfolio-qm0w.onrender.com/api/contact', {
+      const response = await fetch('https://harshal-portfolio-w409.onrender.com/api/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
