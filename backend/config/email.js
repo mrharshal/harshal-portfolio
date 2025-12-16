@@ -2,10 +2,12 @@ const nodemailer = require('nodemailer');
 
 // Create a working Gmail transporter
 const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
+  console.log('🔧 Creating email transporter...');
+  console.log('📧 Email User:', process.env.EMAIL_USER ? 'Set ✅' : 'Missing ❌');
+  console.log('🔑 Email Pass:', process.env.EMAIL_PASS ? 'Set ✅' : 'Missing ❌');
+  
+  const transporter = nodemailer.createTransport({
+    service: 'gmail', // Use service instead of host/port
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
@@ -14,6 +16,17 @@ const createTransporter = () => {
       rejectUnauthorized: false
     }
   });
+  
+  // Verify transporter
+  transporter.verify((error, success) => {
+    if (error) {
+      console.error('❌ Email transporter verification failed:', error);
+    } else {
+      console.log('✅ Email transporter verified successfully');
+    }
+  });
+  
+  return transporter;
 };
 
 // Send notification email to admin

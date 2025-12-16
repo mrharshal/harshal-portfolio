@@ -34,8 +34,10 @@ const Contact = () => {
         
       const response = await fetch(apiUrl, {
         method: 'POST',
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify(formData),
         signal: controller.signal
@@ -43,7 +45,12 @@ const Contact = () => {
       
       clearTimeout(timeoutId);
       
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
       if (response.ok) {
+        const data = await response.json();
+        console.log('Success response:', data);
         setStatus({ 
           type: 'success', 
           message: 'Message sent successfully! Thank you for contacting me.' 
@@ -51,9 +58,11 @@ const Contact = () => {
         // Reset form immediately
         setFormData({ name: '', email: '', subject: '', message: '' })
       } else {
+        const errorData = await response.text();
+        console.log('Error response:', errorData);
         setStatus({ 
           type: 'error', 
-          message: 'Failed to send message. Please try again.' 
+          message: `Failed to send message (${response.status}). Please try again.` 
         })
       }
     } catch (error) {

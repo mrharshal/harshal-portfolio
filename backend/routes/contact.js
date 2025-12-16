@@ -37,24 +37,40 @@ router.post('/', validateContactForm, handleValidationErrors, async (req, res) =
     });
     
     // Everything happens in background (zero blocking)
-    setImmediate(() => {
+    setImmediate(async () => {
       const emailData = { name, email, subject, message };
+      
+      console.log('🔄 Processing contact form submission...');
+      console.log('📝 Data:', { name, email, subject });
       
       // Save to database (background)
       if (mongoose.connection.readyState === 1) {
-        newMessage.save()
-          .then(saved => console.log('✅ DB saved:', saved._id))
-          .catch(err => console.log('❌ DB failed:', err.message));
+        try {
+          const saved = await newMessage.save();
+          console.log('✅ DB saved:', saved._id);
+        } catch (err) {
+          console.log('❌ DB failed:', err.message);
+        }
       }
       
-      // Send emails (background)
-      sendNotificationEmail(emailData)
-        .then(() => console.log('✅ Admin email sent'))
-        .catch(err => console.log('❌ Admin email failed'));
+      // Send emails (background) with detailed logging
+      try {
+        console.log('📧 Sending admin notification...');
+        await sendNotificationEmail(emailData);
+        console.log('✅ Admin email sent successfully');
+      } catch (err) {
+        console.log('❌ Admin email failed:', err.message);
+        console.error('Full admin email error:', err);
+      }
       
-      sendAutoReply(emailData)
-        .then(() => console.log('✅ User email sent'))
-        .catch(err => console.log('❌ User email failed'));
+      try {
+        console.log('📧 Sending user auto-reply...');
+        await sendAutoReply(emailData);
+        console.log('✅ User email sent successfully');
+      } catch (err) {
+        console.log('❌ User email failed:', err.message);
+        console.error('Full user email error:', err);
+      }
     });
     
     return; // Exit here - no more processing
@@ -151,6 +167,46 @@ router.put('/messages/:id/status', async (req, res) => {
   }
 });
 
+// @route   GET /api/contact/quick-email-test
+// @desc    Quick email test
+// @access  Public
+router.get('/quick-email-test', async (req, res) => {
+  try {
+    console.log('🧪 Quick email test starting...');
+    
+    const { sendNotificationEmail, sendAutoReply } = require('../config/email');
+    
+    const testData = {
+      name: 'Quick Test',
+      email: 'harshalshirsath2001@gmail.com',
+      subject: 'Quick Email Test',
+      message: 'This is a quick test to check email functionality.'
+    };
+    
+    // Test both emails
+    const adminResult = await sendNotificationEmail(testData);
+    const userResult = await sendAutoReply(testData);
+    
+    res.json({
+      success: true,
+      message: 'Quick email test completed',
+      data: {
+        adminSent: !!adminResult,
+        userSent: !!userResult,
+        timestamp: new Date().toISOString()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Quick email test failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Quick email test failed',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
 
 // @route   GET /api/contact/test-db
@@ -216,6 +272,10 @@ router.post('/test-email', async (req, res) => {
     const userEmail = testEmail || 'test@example.com';
     
     console.log('🧪 Testing email functionality...');
+    console.log('📧 Email config check:');
+    console.log('EMAIL_USER:', process.env.EMAIL_USER ? '✅ Set' : '❌ Missing');
+    console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? '✅ Set' : '❌ Missing');
+    console.log('RECIPIENT_EMAIL:', process.env.RECIPIENT_EMAIL ? '✅ Set' : '❌ Missing');
     
     const testData = {
       name: 'Test User',
@@ -227,27 +287,36 @@ router.post('/test-email', async (req, res) => {
     let results = {
       adminNotified: false,
       userReplied: false,
-      errors: []
+      errors: [],
+      config: {
+        emailUser: process.env.EMAIL_USER || 'Not set',
+        recipientEmail: process.env.RECIPIENT_EMAIL || 'Not set',
+        emailPassSet: !!process.env.EMAIL_PASS
+      }
     };
     
     // Test admin notification
     try {
+      console.log('🔄 Testing admin notification...');
       await sendNotificationEmail(testData);
       results.adminNotified = true;
       console.log('✅ Admin notification test passed');
     } catch (error) {
       results.errors.push(`Admin notification failed: ${error.message}`);
       console.error('❌ Admin notification test failed:', error.message);
+      console.error('Full error:', error);
     }
     
     // Test user auto-reply
     try {
+      console.log('🔄 Testing user auto-reply...');
       await sendAutoReply(testData);
       results.userReplied = true;
       console.log('✅ User auto-reply test passed');
     } catch (error) {
       results.errors.push(`Auto-reply failed: ${error.message}`);
       console.error('❌ User auto-reply test failed:', error.message);
+      console.error('Full error:', error);
     }
     
     const success = results.adminNotified && results.userReplied;
@@ -271,4 +340,23 @@ router.post('/test-email', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// @route   GET /api/contact/debug-config
+// @desc    Debug email configuration
+// @access  Public (for testing)
+router.get('/debug-config', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Email configuration debug info',
+    data: {
+      emailUser: process.env.EMAIL_USER || 'Not set',
+      emailHost: process.env.EMAIL_HOST || 'Not set',
+      emailPort: process.env.EMAIL_PORT || 'Not set',
+      recipientEmail: process.env.RECIPIENT_EMAIL || 'Not set',
+      emailPassSet: !!process.env.EMAIL_PASS,
+      nodeEnv: process.env.NODE_ENV || 'Not set',
+      timestamp: new Date().toISOString()
+    }
+  });
 });
