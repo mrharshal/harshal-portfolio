@@ -23,35 +23,52 @@ const Contact = () => {
     setStatus({ type: '', message: '' })
     
     try {
-      const response = await fetch('https://harshal-portfolio-w409.onrender.com/api/contact', {
+      // Use proxy for localhost, direct URL for production
+      const apiUrl = window.location.hostname === 'localhost' 
+        ? '/api/contact' 
+        : 'https://harshal-portfolio-w409.onrender.com/api/contact';
+      
+      // Add 8 second timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),
+        signal: controller.signal
       })
       
-      const data = await response.json()
+      clearTimeout(timeoutId);
       
-      if (data.success) {
+      if (response.ok) {
         setStatus({ 
           type: 'success', 
-          message: data.message 
+          message: 'Message sent successfully! Thank you for contacting me.' 
         })
-        // Reset form on success
+        // Reset form immediately
         setFormData({ name: '', email: '', subject: '', message: '' })
       } else {
         setStatus({ 
           type: 'error', 
-          message: data.message || 'Failed to send message. Please try again.' 
+          message: 'Failed to send message. Please try again.' 
         })
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      setStatus({ 
-        type: 'error', 
-        message: 'Network error. Please check your connection and try again.' 
-      })
+      if (error.name === 'AbortError') {
+        setStatus({ 
+          type: 'error', 
+          message: 'Request timeout. Please try again.' 
+        })
+      } else {
+        setStatus({ 
+          type: 'error', 
+          message: 'Network error. Please try again.' 
+        })
+      }
     } finally {
       setIsSubmitting(false)
     }

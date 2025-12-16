@@ -26,90 +26,38 @@ router.post('/', validateContactForm, handleValidationErrors, async (req, res) =
       userAgent
     });
     
-    // Check database connection and save message
-    let savedMessage = null;
-    let dbSaveSuccess = false;
-    
-    if (mongoose.connection.readyState === 1) {
-      try {
-        savedMessage = await newMessage.save();
-        dbSaveSuccess = true;
-        console.log('✅ Message saved to database successfully');
-        console.log('Message ID:', savedMessage._id);
-      } catch (dbError) {
-        console.error('❌ Database save error:', dbError.message);
-        console.error('Full error:', dbError);
-      }
-    } else {
-      console.log('⚠️ Database not connected, skipping save');
-      console.log('Connection state:', mongoose.connection.readyState);
-    }
-    
-    // Email sending status
-    let emailResults = {
-      adminNotified: false,
-      userReplied: false,
-      errors: []
-    };
-    
-    // Send notification email to admin
-    try {
-      console.log('🔄 Sending notification email to admin...');
-      await sendNotificationEmail({
-        name,
-        email,
-        subject,
-        message
-      });
-      emailResults.adminNotified = true;
-      console.log('✅ Admin notification email sent successfully');
-    } catch (emailError) {
-      console.error('❌ Failed to send admin notification email:', emailError.message);
-      emailResults.errors.push(`Admin notification failed: ${emailError.message}`);
-    }
-    
-    // Send auto-reply to user
-    try {
-      console.log('🔄 Sending auto-reply email to user...');
-      await sendAutoReply({
-        name,
-        email,
-        subject,
-        message
-      });
-      emailResults.userReplied = true;
-      console.log('✅ User auto-reply email sent successfully');
-    } catch (emailError) {
-      console.error('❌ Failed to send user auto-reply email:', emailError.message);
-      emailResults.errors.push(`Auto-reply failed: ${emailError.message}`);
-    }
-    
-    // Determine response message based on email results
-    let responseMessage = 'Message received successfully!';
-    if (emailResults.adminNotified && emailResults.userReplied) {
-      responseMessage = 'Message sent successfully! You should receive a confirmation email shortly.';
-    } else if (emailResults.userReplied) {
-      responseMessage = 'Message received! You should receive a confirmation email shortly.';
-    } else if (emailResults.adminNotified) {
-      responseMessage = 'Message received and admin has been notified.';
-    } else if (emailResults.errors.length > 0) {
-      responseMessage = 'Message received but there were email delivery issues.';
-    }
-    
+    // INSTANT RESPONSE - No waiting for anything!
     res.status(201).json({
       success: true,
-      message: responseMessage,
+      message: 'Message sent successfully!',
       data: {
-        id: savedMessage?._id || 'temp-id',
-        timestamp: savedMessage?.createdAt || new Date(),
-        dbSaved: dbSaveSuccess,
-        emails: {
-          adminNotified: emailResults.adminNotified,
-          userReplied: emailResults.userReplied,
-          errors: emailResults.errors
-        }
+        id: Date.now().toString(),
+        timestamp: new Date()
       }
     });
+    
+    // Everything happens in background (zero blocking)
+    setImmediate(() => {
+      const emailData = { name, email, subject, message };
+      
+      // Save to database (background)
+      if (mongoose.connection.readyState === 1) {
+        newMessage.save()
+          .then(saved => console.log('✅ DB saved:', saved._id))
+          .catch(err => console.log('❌ DB failed:', err.message));
+      }
+      
+      // Send emails (background)
+      sendNotificationEmail(emailData)
+        .then(() => console.log('✅ Admin email sent'))
+        .catch(err => console.log('❌ Admin email failed'));
+      
+      sendAutoReply(emailData)
+        .then(() => console.log('✅ User email sent'))
+        .catch(err => console.log('❌ User email failed'));
+    });
+    
+    return; // Exit here - no more processing
     
   } catch (error) {
     console.error('Contact form error:', error);
